@@ -5,38 +5,6 @@ entry start
 
 section '.text' code readable executable
 
-; Функция сравнения строк (аналог strcmp)
-; Вход: eax = указатель на строку 1, edx = указатель на строку 2
-; Выход: eax = 0 если строки равны, иначе != 0
-string_compare:
-    push esi
-    push edi
-    mov esi, eax
-    mov edi, edx
-    
-.compare_loop:
-    mov al, [esi]
-    mov dl, [edi]
-    cmp al, dl
-    jne .not_equal
-    test al, al
-    jz .equal
-    inc esi
-    inc edi
-    jmp .compare_loop
-    
-.equal:
-    xor eax, eax
-    jmp .done
-    
-.not_equal:
-    mov eax, 1
-    
-.done:
-    pop edi
-    pop esi
-    ret
-
 start:
     ; Получаем PEB
     mov eax, [fs:0x30]    ; PEB
@@ -85,32 +53,55 @@ start:
     
     ; Цикл поиска функции
     xor edx, edx          ; EDX будет хранить индекс
-    
-.search_loop:
+
+search_loop:
     ; Получаем RVA имени функции
     mov eax, [esi]
     add eax, ebx          ; VA имени функции
     
-    ; Сравниваем с искомым именем
+    ; Сравниваем с искомым именем (встроенное сравнение строк)
     push esi
+    push edi
     push ecx
     push edx
-    mov edx, target_function
-    call string_compare
+    
+    mov esi, eax          ; ESI = текущее имя функции
+    mov edi, target_function ; EDI = искомое имя
+    
+compare_loop:
+    mov al, [esi]
+    mov cl, [edi]
+    cmp al, cl
+    jne not_equal
+    test al, al
+    jz equal
+    inc esi
+    inc edi
+    jmp compare_loop
+
+equal:
+    xor eax, eax
+    jmp compare_done
+
+not_equal:
+    mov eax, 1
+
+compare_done:
     pop edx
     pop ecx
+    pop edi
     pop esi
     
     ; Если нашли функцию (строки равны)
     test eax, eax
-    jz .found_function
+    jz found_function
     
     ; Следующее имя
     add esi, 4
     inc edx
-    loop .search_loop
-    
-.found_function:
+    loop search_loop
+
+found_function:
     ; Получаем ординал функции
     movzx eax, word [ebp + edx * 2] ; получаем ординал (16-битное значение)
     
@@ -120,7 +111,7 @@ start:
     mov eax, [eax]        ; RVA функции
     add eax, ebx          ; VA функции (абсолютный адрес)
     
-    ; Вызываем ExitProcess с кодом равным ее адресу 
+    ; Вызываем ExitProcess с кодом равным ее адресу
     push eax
     call eax              ; вызываем найденную функцию
 
