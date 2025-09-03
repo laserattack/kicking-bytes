@@ -1,4 +1,4 @@
-; vim: syntax=fasm:
+; vim: set filetype=fasm :
 
 format ELF64 executable
 
