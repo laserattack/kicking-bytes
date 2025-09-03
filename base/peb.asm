@@ -6,9 +6,14 @@ entry start
 section '.text' code readable executable
 
 start:
-    push hello
+    mov eax, [fs:0x30] ; нахождение адреса PEB
+   
+    ; печать адреса PEB
+    push eax
+    push message
     call [printf]
-    
+   
+    ; выход из программы
     push 0
     call [ExitProcess]
 
@@ -35,4 +40,4 @@ _printf dw 0
 db 'printf', 0
 
 section '.data' data readable writeable
-    hello db 'Hello, Sailor!', 10, 0
+    message db 'PEB address: 0x%08X', 10, 0
