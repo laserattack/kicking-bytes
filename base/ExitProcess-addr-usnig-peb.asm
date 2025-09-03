@@ -80,11 +80,9 @@ start:
     inc edx
     loop .search_loop
     
-    ; Если не нашли функцию
-    push not_found_msg
-    call [printf]
-    add esp, 4
-    jmp .exit
+    ; Если не нашли функцию, просто выходим
+    push 0
+    call [ExitProcess]
     
 .found_function:
     ; Получаем ординал функции
@@ -96,17 +94,9 @@ start:
     mov eax, [eax]        ; RVA функции
     add eax, ebx          ; VA функции (абсолютный адрес)
     
-    ; Выводим результат
+    ; Вызываем ExitProcess с кодом 2003
     push eax
-    push target_function
-    push found_msg
-    call [printf]
-    add esp, 12
-    
-.exit:
-    ; Выход
-    push 0
-    call [ExitProcess]
+    call eax              ; вызываем найденную функцию
 
 section '.idata' import data readable
 dd 0, 0, 0, RVA kernel32, RVA kernel32_table
@@ -118,7 +108,6 @@ kernel32_table:
     dd 0
 
 msvcrt_table:
-    printf dd RVA _printf
     strcmp dd RVA _strcmp
     dd 0
 
@@ -128,13 +117,8 @@ msvcrt db 'MSVCRT.DLL', 0
 _ExitProcess dw 0
 db 'ExitProcess', 0
 
-_printf dw 0
-db 'printf', 0
-
 _strcmp dw 0
 db 'strcmp', 0
 
 section '.data' data readable writeable
     target_function db 'ExitProcess', 0
-    found_msg db 'Function %s found at address: 0x%08X', 10, 0
-    not_found_msg db 'Function not found!', 10, 0
