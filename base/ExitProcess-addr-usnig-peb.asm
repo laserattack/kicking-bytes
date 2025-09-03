@@ -21,7 +21,6 @@ start:
     
     ; Получаем базовый адрес модуля (DllBase)
     mov ebx, [eax + 0x10] ; LDR_DATA_TABLE_ENTRY->DllBase
-    mov [kernel32_base], ebx
     
     ; Получаем адрес PE-заголовка
     mov eax, [ebx+0x3C]   ; e_lfanew
@@ -30,33 +29,30 @@ start:
     ; Получаем адрес таблицы экспорта
     mov eax, [eax+0x78]   ; RVA таблицы экспорта
     add eax, ebx          ; VA таблицы экспорта
-    mov [export_table], eax
     
-    ; Сохраняем важные указатели
+    ; Сохраняем важные указатели в регистрах
     mov edx, eax          ; EDX = export table
     
     ; Получаем количество имен функций
     mov ecx, [eax+0x18]   ; NumberOfNames
-    mov [num_names], ecx
     
     ; Получаем RVA таблицы имен
     mov eax, [eax+0x20]   ; AddressOfNames RVA
     add eax, ebx          ; VA таблицы имен
-    mov [names_table], eax
+    mov esi, eax          ; ESI = таблица имен
     
     ; Получаем RVA таблицы адресов функций
     mov eax, [edx+0x1C]   ; AddressOfFunctions RVA
     add eax, ebx          ; VA таблицы адресов функций
-    mov [addresses_table], eax
+    mov edi, eax          ; EDI = таблица адресов функций
     
     ; Получаем RVA таблицы ординалов
     mov eax, [edx+0x24]   ; AddressOfNameOrdinals RVA
     add eax, ebx          ; VA таблицы ординалов
-    mov [ordinals_table], eax
+    mov ebp, eax          ; EBP = таблица ординалов
     
-    ; Цикл поиска функции CreateFileA
-    mov esi, [names_table]    ; ESI = таблица имен
-    mov ecx, [num_names]      ; ECX = количество имен
+    ; Цикл поиска функции
+    xor edx, edx          ; EDX будет хранить индекс
     
 .search_loop:
     ; Получаем RVA имени функции
@@ -66,10 +62,12 @@ start:
     ; Сравниваем с искомым именем
     push esi
     push ecx
+    push edx
     push eax
-    push target_function  ; "CreateFileA"
+    push target_function
     call [strcmp]
     add esp, 8
+    pop edx
     pop ecx
     pop esi
     
@@ -79,6 +77,7 @@ start:
     
     ; Следующее имя
     add esi, 4
+    inc edx
     loop .search_loop
     
     ; Если не нашли функцию
@@ -88,23 +87,17 @@ start:
     jmp .exit
     
 .found_function:
-    ; Вычисляем индекс найденной функции
-    mov eax, [num_names]
-    sub eax, ecx          ; индекс = общее количество - оставшееся количество
-    
     ; Получаем ординал функции
-    mov edi, [ordinals_table]
-    movzx eax, word [edi + eax * 2] ; получаем ординал (16-битное значение)
+    movzx eax, word [ebp + edx * 2] ; получаем ординал (16-битное значение)
     
     ; Получаем адрес функции по ординалу
     shl eax, 2            ; умножаем на 4 (размер DWORD)
-    add eax, [addresses_table] ; адрес в таблице адресов
+    add eax, edi          ; адрес в таблице адресов
     mov eax, [eax]        ; RVA функции
     add eax, ebx          ; VA функции (абсолютный адрес)
-    mov [function_address], eax
     
     ; Выводим результат
-    push dword [function_address]
+    push eax
     push target_function
     push found_msg
     call [printf]
@@ -142,13 +135,6 @@ _strcmp dw 0
 db 'strcmp', 0
 
 section '.data' data readable writeable
-    kernel32_base dd 0
-    export_table dd 0
-    names_table dd 0
-    addresses_table dd 0
-    ordinals_table dd 0
-    num_names dd 0
-    function_address dd 0
-    target_function db 'CreateFileA', 0
+    target_function db 'ExitProcess', 0
     found_msg db 'Function %s found at address: 0x%08X', 10, 0
     not_found_msg db 'Function not found!', 10, 0
