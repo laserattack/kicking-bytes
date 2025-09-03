@@ -66,7 +66,14 @@ search_loop:
     push edx
     
     mov esi, eax          ; ESI = текущее имя функции
-    mov edi, target_function ; EDI = искомое имя
+    mov edi, esp
+    sub edi, 64           ; EDI = место для строки "ExitProcess" в стеке
+    
+    ; Помещаем "ExitProcess" в стек
+    mov dword [edi], 'Exit'
+    mov dword [edi+4], 'Proc'
+    mov dword [edi+8], 'ess'
+    mov byte [edi+11], 0
     
 compare_loop:
     mov al, [esi]
@@ -114,6 +121,3 @@ found_function:
     ; Вызываем ExitProcess с кодом равным ее адресу
     push eax
     call eax              ; вызываем найденную функцию
-
-section '.data' data readable writeable
-    target_function db 'ExitProcess', 0
