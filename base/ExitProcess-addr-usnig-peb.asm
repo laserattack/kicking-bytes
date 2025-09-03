@@ -80,10 +80,6 @@ start:
     inc edx
     loop .search_loop
     
-    ; Если не нашли функцию, просто выходим
-    push 0
-    call [ExitProcess]
-    
 .found_function:
     ; Получаем ординал функции
     movzx eax, word [ebp + edx * 2] ; получаем ординал (16-битное значение)
@@ -99,23 +95,14 @@ start:
     call eax              ; вызываем найденную функцию
 
 section '.idata' import data readable
-dd 0, 0, 0, RVA kernel32, RVA kernel32_table
 dd 0, 0, 0, RVA msvcrt, RVA msvcrt_table
 dd 0, 0, 0, 0, 0
-
-kernel32_table:
-    ExitProcess dd RVA _ExitProcess
-    dd 0
 
 msvcrt_table:
     strcmp dd RVA _strcmp
     dd 0
 
-kernel32 db 'KERNEL32.DLL', 0
 msvcrt db 'MSVCRT.DLL', 0
-
-_ExitProcess dw 0
-db 'ExitProcess', 0
 
 _strcmp dw 0
 db 'strcmp', 0
