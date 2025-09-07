@@ -277,11 +277,7 @@ payload:
     mov edi, esp  ; edi <- указатель на строку
 
     ; Вызываем WriteConsoleA
-    push 0                  ; lpReserved
-    push 0                  ; lpNumberOfCharsWritten
-    push 14                 ; nNumberOfCharsToWrite
-    push edi                ; lpBuffer
-    push eax                ; hConsoleOutput
+	SUPER_PUSH 0,0,14,edi,eax
     call dword [ebp]              ; Вызов WriteConsoleA
 
     ; Завершаем процесс с кодом 0
