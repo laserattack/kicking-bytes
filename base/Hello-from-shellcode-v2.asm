@@ -24,14 +24,13 @@ macro super_pop [args] {
 
 macro push_string [bytes] {
     common
-        local ..counter
-        ..counter = 0
-        ; Используем существующее место на стеке
+        local counter
+        counter = 0
         mov edi, esp
-        sub edi, 512  ; Используем буфер на стеке
+        sub edi, 512
     forward
-        mov byte [edi + ..counter], bytes
-        ..counter = ..counter + 1
+        mov byte [edi + counter], bytes
+        counter = counter + 1
 }
 
 ; Получение адреса PEB
@@ -146,6 +145,37 @@ macro save_func_addr {
     push eax ; <- адрес на стек
 }
 
+macro search_func_addr [bytes] {
+    common
+		local search, search_loop, found
+		search:
+			peb_parse
+			xor edx, edx ; <- регистр выполняющий функцию счетчика
+		search_loop:
+			; Получаем адрес имени функции
+			mov eax, [esi]
+			add eax, ebx ; eax <- адрес имени функции
+			; Сравниваем с искомым именем
+			super_push esi, edi, ecx, edx
+			
+			push_string bytes
+			
+			compare_strings eax, edi, eax
+			super_pop edx, ecx, edi, esi
+			; Если строки равны
+			test eax, eax
+			jz found
+			; Иначе след. итерация
+			add esi, 4 ; <- переход к адресу след. имени
+			inc edx ; <- инкрементирование индекса
+			loop search_loop
+		; Код выполняющийся если функция найдена
+		; ebp - адрес таблицы ординалов
+		; edx - индекс имени функции в таблице имен
+		found:
+			save_func_addr
+}
+
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
@@ -153,103 +183,12 @@ macro save_func_addr {
 ; ШЕЛЛКОД
 start:
 
-; Поиск адреса ExitProcess
-search_ExitProcess:
-	peb_parse
-	; Поиск ExitProcess
-    xor edx, edx ; <- регистр выполняющий функцию счетчика
-search_ExitProcess_loop:
-    ; Получаем адрес имени функции
-    mov eax, [esi]
-    add eax, ebx ; eax <- адрес имени функции
-    ; Сравниваем с искомым именем
-	super_push esi, edi, ecx, edx
-    push_string 'E','x','i','t','P','r','o','c','e','s','s',0x00
-    compare_strings eax, edi, eax
-	super_pop edx, ecx, edi, esi
-    ; Если строки равны
-    test eax, eax
-    jz found_ExitProcess
-    ; Иначе след. итерация
-    add esi, 4 ; <- переход к адресу след. имени
-    inc edx ; <- инкрементирование индекса
-    loop search_ExitProcess_loop
-; Код выполняющийся если функция найдена
-; ebp - адрес таблицы ординалов
-; edx - индекс имени функции в таблице имен
-found_ExitProcess:
-    save_func_addr
-	
-
-; Поиск адреса GetStdHandle
-search_GetStdHandle:
-    peb_parse
-	; Поиск GetStdHandle
-    xor edx, edx ; <- регистр выполняющий функцию счетчика
-search_GetStdHandle_loop:
-    ; Получаем адрес имени функции
-    mov eax, [esi]
-    add eax, ebx ; eax <- адрес имени функции
-    ; Сравниваем с искомым именем
-	super_push esi, edi, ecx, edx
-    push_string 'G','e','t','S','t','d','H','a','n','d','l','e',0x00
-    compare_strings eax, edi, eax
-	super_pop edx, ecx, edi, esi
-    ; Если строки равны
-    test eax, eax
-    jz found_GetStdHandle
-    ; Иначе след. итерация
-    add esi, 4 ; <- переход к адресу след. имени
-    inc edx ; <- инкрементирование индекса
-    loop search_GetStdHandle_loop ; выполняется ecx раз
-GetStdHandle_not_found:
-	pop ebx ; <- адрес ExitProcess
-    push 1
-    call ebx 
-; Код выполняющийся если функция найдена
-; ebp - адрес таблицы ординалов
-; edx - индекс имени функции в таблице имен
-found_GetStdHandle:
-    save_func_addr
-	
-	
-; Поиск адреса WriteConsoleA
-search_WriteConsoleA:
-    peb_parse
-	; Поиск WriteConsoleA
-    xor edx, edx ; <- регистр выполняющий функцию счетчика
-search_WriteConsoleA_loop:
-    ; Получаем адрес имени функции
-    mov eax, [esi]
-    add eax, ebx ; eax <- адрес имени функции
-    ; Сравниваем с искомым именем
-	super_push esi, edi, ecx, edx
-	push_string 'W','r','i','t','e','C','o','n','s','o','l','e','A',0x00
-    compare_strings eax, edi, eax
-	super_pop edx, ecx, edi, esi
-    ; Если строки равны
-    test eax, eax
-    jz found_WriteConsoleA
-    ; Иначе след. итерация
-    add esi, 4 ; <- переход к адресу след. имени
-    inc edx ; <- инкрементирование индекса
-	dec ecx
-    jnz search_WriteConsoleA_loop
-    jmp WriteConsoleA_not_found
-WriteConsoleA_not_found:
-	pop ebx ; <- адрес ExitProcess
-    push 1
-    call ebx 
-; Код выполняющийся если функция найдена
-; ebp - адрес таблицы ординалов
-; edx - индекс имени функции в таблице имен
-found_WriteConsoleA:
-	save_func_addr
-	
+search_func_addr 'E','x','i','t','P','r','o','c','e','s','s',0x00
+search_func_addr 'G','e','t','S','t','d','H','a','n','d','l','e',0x00
+search_func_addr 'W','r','i','t','e','C','o','n','s','o','l','e','A',0x00
 	
 ; После того как найдены все адреса, можно выполнять полезную нагрузку
 payload:
-
 
 	; Устанавливаем ebp как базовый указатель на стек
 	mov ebp, esp  ; Теперь ebp указывает на вершину стека
@@ -265,12 +204,11 @@ payload:
 	; Теперь в eax хендл стандартного вывода
 
 	; Подготавливаем строку для вывода на стек
-	push_string 'h','e','l','l','o',' ','f','r','o','m',' ','s','h','e','l','l','c','o','d','e','!','!',0x0A,0x00
+	push_string 'h','e','l','l','o',' ','f','r','o','m',' ','s','h','e','l','l','c','o','d','e',0x0A,0x00
 
 	; Вызываем WriteConsoleA
-	super_push 0,0,23,edi,eax
+	super_push 0,0,21,edi,eax
 	call dword [ebp]              ; Вызов WriteConsoleA
-
 
     ; Завершаем процесс с кодом 0
     push 0
