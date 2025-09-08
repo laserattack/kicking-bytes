@@ -12,17 +12,17 @@ section '.text' code readable executable
 ; ============================================================================
 
 ; Макрос для пуша всех переданных аргументов в стек
-macro SUPER_PUSH [args] {
+macro super_push [args] {
     forward
     push args
 }
 ; Макрос для попа нескольких значений из стека  
-macro SUPER_POP [args] {
+macro super_pop [args] {
     forward
     pop args
 }
 
-macro PUSH_STRING [bytes] {
+macro push_string [bytes] {
     common
         local ..counter
         ..counter = 0
@@ -89,7 +89,7 @@ macro get_funs_ordinals_addr module_base_addr_reg, export_table_addr_reg, output
 ; Сравнение строк (аналог strcmp)
 macro compare_strings str1_reg, str2_reg, output_reg {
     local compare_loop, not_equal, equal, done
-	SUPER_PUSH esi, edi, ecx
+	super_push esi, edi, ecx
     
     mov esi, str1_reg
     mov edi, str2_reg
@@ -113,7 +113,7 @@ equal:
     xor output_reg, output_reg
 
 done:
-	SUPER_POP ecx, edi, esi
+	super_pop ecx, edi, esi
 }
 
 ; ДАЛЕЕ МАКРОСЫ ВЫПОЛНЕНИЕ КОРРЕКТНОЕ ВЫПОЛНЕНИЕ КОТОРЫХ ЗАВИСИТ ОТ КОНТЕКСТА
@@ -163,10 +163,10 @@ search_ExitProcess_loop:
     mov eax, [esi]
     add eax, ebx ; eax <- адрес имени функции
     ; Сравниваем с искомым именем
-	SUPER_PUSH esi, edi, ecx, edx
-    PUSH_STRING 'E','x','i','t','P','r','o','c','e','s','s',0x00
+	super_push esi, edi, ecx, edx
+    push_string 'E','x','i','t','P','r','o','c','e','s','s',0x00
     compare_strings eax, edi, eax
-	SUPER_POP edx, ecx, edi, esi
+	super_pop edx, ecx, edi, esi
     ; Если строки равны
     test eax, eax
     jz found_ExitProcess
@@ -191,10 +191,10 @@ search_GetStdHandle_loop:
     mov eax, [esi]
     add eax, ebx ; eax <- адрес имени функции
     ; Сравниваем с искомым именем
-	SUPER_PUSH esi, edi, ecx, edx
-    PUSH_STRING 'G','e','t','S','t','d','H','a','n','d','l','e',0x00
+	super_push esi, edi, ecx, edx
+    push_string 'G','e','t','S','t','d','H','a','n','d','l','e',0x00
     compare_strings eax, edi, eax
-	SUPER_POP edx, ecx, edi, esi
+	super_pop edx, ecx, edi, esi
     ; Если строки равны
     test eax, eax
     jz found_GetStdHandle
@@ -223,10 +223,10 @@ search_WriteConsoleA_loop:
     mov eax, [esi]
     add eax, ebx ; eax <- адрес имени функции
     ; Сравниваем с искомым именем
-	SUPER_PUSH esi, edi, ecx, edx
-	PUSH_STRING 'W','r','i','t','e','C','o','n','s','o','l','e','A',0x00
+	super_push esi, edi, ecx, edx
+	push_string 'W','r','i','t','e','C','o','n','s','o','l','e','A',0x00
     compare_strings eax, edi, eax
-	SUPER_POP edx, ecx, edi, esi
+	super_pop edx, ecx, edi, esi
     ; Если строки равны
     test eax, eax
     jz found_WriteConsoleA
@@ -250,29 +250,27 @@ found_WriteConsoleA:
 ; После того как найдены все адреса, можно выполнять полезную нагрузку
 payload:
 
-	repeat 10
 
-		; Устанавливаем ebp как базовый указатель на стек
-		mov ebp, esp  ; Теперь ebp указывает на вершину стека
+	; Устанавливаем ebp как базовый указатель на стек
+	mov ebp, esp  ; Теперь ebp указывает на вершину стека
 
-		; На стеке:
-		; [ebp]     -> WriteConsoleA
-		; [ebp+4]   -> GetStdHandle
-		; [ebp+8]   -> ExitProcess
+	; На стеке:
+	; [ebp]     -> WriteConsoleA
+	; [ebp+4]   -> GetStdHandle
+	; [ebp+8]   -> ExitProcess
 
-		; Получаем хендл стандартного вывода (STD_OUTPUT_HANDLE = -11)
-		push -11
-		call dword [ebp+4]  ; Вызов GetStdHandle(-11)
-		; Теперь в eax хендл стандартного вывода
+	; Получаем хендл стандартного вывода (STD_OUTPUT_HANDLE = -11)
+	push -11
+	call dword [ebp+4]  ; Вызов GetStdHandle(-11)
+	; Теперь в eax хендл стандартного вывода
 
-		; Подготавливаем строку для вывода на стек
-		PUSH_STRING 'h','e','l','l','o',' ','f','r','o','m',' ','s','h','e','l','l','c','o','d','e',0x0A,0x00
+	; Подготавливаем строку для вывода на стек
+	push_string 'h','e','l','l','o',' ','f','r','o','m',' ','s','h','e','l','l','c','o','d','e','!','!',0x0A,0x00
 
-		; Вызываем WriteConsoleA
-		SUPER_PUSH 0,0,21,edi,eax
-		call dword [ebp]              ; Вызов WriteConsoleA
+	; Вызываем WriteConsoleA
+	super_push 0,0,23,edi,eax
+	call dword [ebp]              ; Вызов WriteConsoleA
 
-	end repeat
 
     ; Завершаем процесс с кодом 0
     push 0
