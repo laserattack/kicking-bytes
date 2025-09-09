@@ -91,12 +91,9 @@ macro peb_parse {
 }
 ; Сохранение на стеке адреса функции (принимает ее ординал)
 macro save_func_addr ordinal {
-    mov eax, ordinal-1
-    shl eax, 2
-    add eax, edi
-    mov eax, [eax]
+    mov eax, [edi + (ordinal-1)*4]
     add eax, ebx
-    push eax ; <- адрес функции на стек
+    push eax
 }
 
 ; ============================================================================
@@ -114,55 +111,37 @@ MODULE32_FIRST = 1000
 MODULE32_NEXT = 1002
 GET_LAST_ERROR = 615
 
-strlen:
-    mov ebx,0
-    strlen_loop:
-        cmp byte [eax+ebx],0
-        je strlen_end
-        inc ebx
-        jmp strlen_loop
-    strlen_end:
-        inc ebx
-        ret
-
-macro print_newline {
-    push -11
-    call dword [ebp+24]
-    
-    jmp newline
-newline_continue:
-    pop ecx
-	super_push 0,0,1,ecx,eax
-	
-    call dword [ebp+20]
-}
+; ============================================================================
+; ============================================================================
+; ============================================================================
 
 macro print_string addr {
     push -11
     call dword [ebp+24]
     push eax
     mov eax, addr
-	call strlen
+	mov ebx,0
+    strlen_loop:
+        cmp byte [eax+ebx],0
+        je strlen_end
+        inc ebx
+        jmp strlen_loop
+    strlen_end:
+	inc ebx
 	pop eax
 	super_push 0,0,ebx,ecx,eax
-    call dword [ebp+20]
+	call dword [ebp+20]
 }
-
-; ============================================================================
-; ============================================================================
-; ============================================================================
 
 ; ШЕЛЛКОД
 start:
 	; получение адресов секций peb
 	peb_parse
 	; адреса функций на стек
-	
-	save_func_addr GET_LAST_ERROR ; ebp + 28
 	save_func_addr GET_STD_HANDLE ; ebp + 24
 	save_func_addr WRITE_CONSOLE_A ; ebp + 20
     save_func_addr EXIT_PROCESS ; ebp + 16
-    save_func_addr CLOSE_HANDLE ; ebp + 12  
+    save_func_addr CLOSE_HANDLE ; ebp + 12
     save_func_addr MODULE32_NEXT ; ebp + 8
     save_func_addr MODULE32_FIRST ; ebp + 4
     save_func_addr CREATE_TOOLHELP32_SNAPSHOT ; ebp + 0
@@ -170,63 +149,40 @@ start:
 	mov ebp, esp
     
 payload:
-	
     ; Создаем снимок процессов
-    push 3132               ; pid целевого процесса (должен быть 32 битный)
-    push 0x0000000F         ; TH32CS_SNAPMODULE
-    call dword [ebp+0]      ; CreateToolhelp32Snapshot
+	super_push 0, 0xF ; первым числом pid целевого процесса (должен быть 32 битный)
+    call dword [ebp+0] ; CreateToolhelp32Snapshot
 
     cmp eax, -1
     je exit
-    mov esi, eax            ; сохраняем хэндл снимка
+    mov esi, eax ; esi <- хендл снимка
 
     ; Выделяем память под MODULEENTRY32
-    sub esp, 1024           ; место под структуру
+    sub esp, 1024
     mov edi, esp
-    mov dword [edi], 1024   ; dwSize = размер структуры
-
-    ; Счетчик модулей
-    xor ebx, ebx            ; ebx = 0 (счетчик)
+    mov dword [edi], 1024
 	
     ; Получаем первый модуль
-    push edi                ; lpme
-    push esi                ; hSnapshot  
-    call dword [ebp+4]      ; Module32First
+    super_push edi, esi 
+    call dword [ebp+4] ; Module32First
     test eax, eax
-    jz cleanup           	; если нет модулей, показываем 0
-    
-    inc ebx                 ; считаем первый модуль
+    jz cleanup ; нет модулей
 
 module_loop:
-	lea ecx, [edi + 32]    ; ecx <- адрес имени модуля
-	
+	lea ecx, [edi+32]    ; ecx <- адрес имени модуля
 	print_string ecx
-	print_newline
-	
-    ; Получаем следующий модуль
-    push edi                ; lpme
-    push esi                ; hSnapshot
-    call dword [ebp+8]      ; Module32Next
+	super_push edi, esi
+    call dword [ebp+8] ; Module32Next
     test eax, eax
-    jz cleanup           ; если больше нет модулей, выходим
-    
-    inc ebx                 ; увеличиваем счетчик
-    jmp module_loop         ; продолжаем цикл
+    jnz module_loop ; если еще есть модули
 
 cleanup:
     ; Закрываем хэндл снимка
     push esi
-    call dword [ebp+12]     ; CloseHandle
-
-    ; Освобождаем стек
+    call dword [ebp+12] ; CloseHandle
     add esp, 1024
     
 exit:
     ; ExitProcess(0)
-	call dword [ebp+28]
-    push eax
+    push 0
     call dword [ebp+16]
-	
-newline:
-    call newline_continue
-    db 0x0a
