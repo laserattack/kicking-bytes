@@ -106,6 +106,8 @@ macro save_func_addr ordinal {
 ; ОРДИНАЛЫ ФУНКЦИЙ
 
 EXIT_PROCESS = 356
+GET_STD_HANDLE = 728
+WRITE_CONSOLE_A = 1549
 
 ; ============================================================================
 ; ============================================================================
@@ -113,16 +115,32 @@ EXIT_PROCESS = 356
 
 ; ШЕЛЛКОД
 start:
-
-; получение адресов секций peb
-peb_parse
-
-; спушит адрес функции на стек
-save_func_addr EXIT_PROCESS
-	
-payload:
+	; получение адресов секций peb
+	peb_parse
+	; адреса функций на стек
+	save_func_addr EXIT_PROCESS ; ebp + 8
+	save_func_addr GET_STD_HANDLE ; ebp + 4
+	save_func_addr WRITE_CONSOLE_A ; ebp + 0
 	mov ebp, esp
+    
+payload:
+    ; Вызов GetStdHandle(-11)
+    push -11
+    call dword [ebp+4]
+    
+    ; Адрес строки в ecx
+    jmp string_data1
+continue1:
+    pop ecx
+	super_push 0,0,14,ecx,eax
+	
+	; Вывод строки
+    call dword [ebp]
 
-    ; Завершаем процесс с кодом 0
+    ; ExitProcess(0)
     push 0
-    call dword [ebp+0]
+    call dword [ebp+8]
+
+string_data1:
+    call continue1
+    db 'Hello, world!', 0x0A, 0
