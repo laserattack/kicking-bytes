@@ -1,26 +1,32 @@
-/*
-gcc -nostdlib shellcode.c -o shellcode
-objcopy -O binary -j .text shellcode shellcode
-gcc shellcode-test.c -o shellcode-test
-./shellcode-test
-rm shellcode shellcode-test
-*/
+#define exit(num) \
+    asm volatile ( \
+        "mov %0, %%rdi\n" \
+        "mov $60, %%rax\n" \
+        "syscall\n" \
+        : \
+        : "r"((long)num) \
+        : "rax", "rdi", "rcx", "r11" \
+    )
 
-#define SYS_WRITE 1
-#define SYS_EXIT 60
-
-#define syscall0(num) \
-    asm volatile ("syscall" : : "a"(num))
-
-#define syscall3(num, arg1, arg2, arg3) \
-    asm volatile ("syscall" : : "a"(num), "D"(arg1), "S"(arg2), "d"(arg3))
+#define write(fd, buf, count) \
+    asm volatile ( \
+        "mov $1, %%rax\n" \
+        "mov %0, %%rdi\n" \
+        "mov %1, %%rsi\n" \
+        "mov %2, %%rdx\n" \
+        "syscall\n" \
+        : \
+        : "r"((long)fd), "r"(buf), "r"((long)count) \
+        : "rax", "rdi", "rsi", "rdx", "rcx", "r11" \
+    )
 
 void _start() {
     char msg[] = {'h', 'e', 'l', 'l', 'o', 0x0a, 0x00};
     unsigned long len = sizeof(msg) - 1;
     
     for (int i = 0; i < 10; ++i) {
-        syscall3(SYS_WRITE, 1, msg, len);
+        write(1, msg, len);
     }
-    syscall0(SYS_EXIT);
+
+    exit(0);
 }

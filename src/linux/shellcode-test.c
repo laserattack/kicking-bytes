@@ -36,7 +36,7 @@ unsigned char* read_file(const char* filename, size_t* size) {
 
 int main() {
     size_t size;
-    unsigned char* shellcode = read_file("shellcode", &size);
+    unsigned char* shellcode = read_file("shellcode.bin", &size);
     
     if (!shellcode) {
         fprintf(stderr, "Failed to read shellcode.bin\n");
