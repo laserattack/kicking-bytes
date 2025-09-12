@@ -1,22 +1,29 @@
 CC = gcc
 OBJCOPY = objcopy
 
-all: shellcode.elf shellcode.bin shellcode-test.elf
+SOURCE = shellcode.c
+ELF = shellcode.elf
+BIN = shellcode.bin
 
-shellcode.elf: shellcode.c
-	# $(CC) -fcf-protection=none -nostdlib shellcode.c -o shellcode.elf
-	$(CC) -nostdlib shellcode.c -o shellcode.elf
+LOADER_SOURCE = shellcode-test.c
+LOADER_ELF = shellcode-test.elf
 
-shellcode.bin: shellcode.elf
-	$(OBJCOPY) -O binary -j .text shellcode.elf shellcode.bin
+all: $(ELF) $(BIN) $(LOADER_ELF)
 
-shellcode-test.elf: shellcode-test.c
-	$(CC) shellcode-test.c -o shellcode-test.elf
+$(ELF): $(SOURCE)
+	# $(CC) -fcf-protection=none -nostdlib $(SOURCE) -o $(ELF)
+	$(CC) -nostdlib $(SOURCE) -o $(ELF)
 
-run: shellcode-test.elf shellcode.bin
-	./shellcode-test.elf
+$(BIN): $(ELF)
+	$(OBJCOPY) -O binary -j .text $(ELF) $(BIN)
+
+$(LOADER_ELF): $(LOADER_SOURCE)
+	$(CC) $(LOADER_SOURCE) -o $(LOADER_ELF)
+
+run: $(LOADER_ELF) $(BIN)
+	./$(LOADER_ELF) $(BIN)
 
 clean:
-	rm -f shellcode.elf shellcode.bin shellcode-test.elf
+	rm -f $(ELF) $(BIN) $(LOADER_ELF)
 
 .PHONY: all run clean

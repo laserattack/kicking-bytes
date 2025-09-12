@@ -34,12 +34,19 @@ unsigned char* read_file(const char* filename, size_t* size) {
     return buffer;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    const char* filename = argv[1];
     size_t size;
-    unsigned char* shellcode = read_file("shellcode.bin", &size);
+    unsigned char* shellcode = read_file(filename, &size);
     
     if (!shellcode) {
-        fprintf(stderr, "Failed to read shellcode.bin\n");
+        fprintf(stderr, "Failed to read %s\n", filename);
         return 1;
     }
     
