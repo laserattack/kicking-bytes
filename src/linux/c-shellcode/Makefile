@@ -4,6 +4,7 @@ OBJCOPY = objcopy
 all: shellcode.elf shellcode.bin shellcode-test.elf
 
 shellcode.elf: shellcode.c
+	# $(CC) -fcf-protection=none -nostdlib shellcode.c -o shellcode.elf
 	$(CC) -nostdlib shellcode.c -o shellcode.elf
 
 shellcode.bin: shellcode.elf
