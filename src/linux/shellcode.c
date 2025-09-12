@@ -21,7 +21,11 @@
     )
 
 void _start() {
-    char msg[] = {'h', 'e', 'l', 'l', 'o', 0x0a, 0x00};
+    char msg[] = {
+        'h', 'e', 'l', 'l', 'o', ' ',
+        's', 'a', 'i', 'l', 'o', 'r', '!',
+        0x0a, 0x00
+    };
     unsigned long len = sizeof(msg) - 1;
     
     for (int i = 0; i < 10; ++i) {
